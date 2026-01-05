@@ -1,0 +1,236 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String
+  type              String    // CHECK (type IN ('hotspot','center','ngo'))
+  region            String?
+  city              String?
+  address           String?
+  lat               Float?
+  lng               Float?
+  phone             String?
+  contactEmail      String?   @map("contact_email")
+  hoursJson         Json?     @map("hours_json")
+  servicesJson      Json?     @map("services_json")
+  capacityPerDay    Int?      @default(0) @map("capacity_per_day")
+  accessibilityTags String[]  @map("accessibility_tags")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @map("updated_at")
+
+  users            User[]
+  lawyers          Lawyer[]
+  candidateRequests IntakeRequest[] @relation("CandidateOrg")
+  cases            Case[]
+  schedules        Schedule[]
+  visits           Visit[]
+  // Referrals
+  referralsFrom    Referral[] @relation("ReferralFrom")
+  referralsTo      Referral[] @relation("ReferralTo")
+
+  @@map("organizations")
+}
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  email          String?  @unique
+  phone          String?
+  role           String   // CHECK (role IN ('anonymous','applicant','intake','lawyer','coordinator','admin','auditor'))
+  languagePref   String?  @default("en") @map("language_pref")
+  organizationId String?  @map("organization_id") @db.Uuid
+  isActive       Boolean  @default(true) @map("is_active")
+  passwordHash   String?  @map("password_hash")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @map("updated_at")
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  auditLogs      AuditLog[]
+  
+  // Back relations for specific roles (optional but helpful)
+  lawyerProfile  Lawyer?
+  applicantProfile Applicant?
+
+  @@map("users")
+}
+
+model Lawyer {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String?  @unique @map("user_id") @db.Uuid
+  barNumber     String?  @map("bar_number")
+  practiceAreas String[] @map("practice_areas")
+  languages     String[]
+  availabilityJson Json? @map("availability_json")
+  orgId         String?  @map("org_id") @db.Uuid
+  profile       String?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+
+  user          User?         @relation(fields: [userId], references: [id])
+  organization  Organization? @relation(fields: [orgId], references: [id])
+  
+  assignedCases Case[]
+  referralsTo   Referral[]
+
+  @@map("lawyers")
+}
+
+model Applicant {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String?  @unique @map("user_id") @db.Uuid
+  firstName         String?  @map("first_name")
+  lastName          String?  @map("last_name")
+  phone             String?
+  email             String?
+  preferredLanguage String?  @map("preferred_language")
+  region            String?
+  city              String?
+  address           String?
+  lat               Float?
+  lng               Float?
+  consentBoolean    Boolean  @map("consent_boolean")
+  consentTimestamp  DateTime @map("consent_timestamp")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+
+  user              User?    @relation(fields: [userId], references: [id])
+  intakeRequests    IntakeRequest[]
+
+  @@map("applicants")
+}
+
+model IntakeRequest {
+  id                     String   @id @default(uuid()) @db.Uuid
+  applicantId            String?  @map("applicant_id") @db.Uuid
+  topic                  String?
+  subtopic               String?
+  description            String?
+  preferredLanguage      String?  @map("preferred_language")
+  preferredContactMethod String?  @map("preferred_contact_method")
+  status                 String   @default("new") // CHECK (status IN ('new','screening','eligible','ineligible','referred','closed'))
+  source                 String   @default("web") // CHECK (source IN ('web','hotspot','import'))
+  orgIdCandidate         String?  @map("org_id_candidate") @db.Uuid
+  priority               String?  @default("normal")
+  attachments            Json?
+  eligibilityReason      String?  @map("eligibility_reason")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @default(now()) @map("updated_at")
+
+  applicant              Applicant?    @relation(fields: [applicantId], references: [id])
+  candidateOrg           Organization? @relation("CandidateOrg", fields: [orgIdCandidate], references: [id])
+  
+  cases                  Case[]
+  referrals              Referral[]
+
+  @@map("intake_requests")
+}
+
+model Case {
+  id               String    @id @default(uuid()) @db.Uuid
+  intakeRequestId  String?   @map("intake_request_id") @db.Uuid
+  orgId            String?   @map("org_id") @db.Uuid
+  assignedLawyerId String?   @map("assigned_lawyer_id") @db.Uuid
+  status           String    // CHECK (status IN ('triaged','assigned','in_progress','resolved','closed'))
+  openedAt         DateTime  @default(now()) @map("opened_at")
+  closedAt         DateTime? @map("closed_at")
+  outcomeCode      String?   @map("outcome_code")
+  outcomeNotes     String?   @map("outcome_notes")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @map("updated_at")
+
+  intakeRequest    IntakeRequest? @relation(fields: [intakeRequestId], references: [id])
+  organization     Organization?  @relation(fields: [orgId], references: [id])
+  assignedLawyer   Lawyer?        @relation(fields: [assignedLawyerId], references: [id])
+  
+  messages         Message[]
+
+  @@map("cases")
+}
+
+model Schedule {
+  id             String   @id @default(uuid()) @db.Uuid
+  orgId          String?  @map("org_id") @db.Uuid
+  dayOfWeek      Int?     @map("day_of_week")
+  openTime       DateTime? @db.Time @map("open_time")
+  closeTime      DateTime? @db.Time @map("close_time")
+  exceptionsJson Json?    @map("exceptions_json")
+  effectiveFrom  DateTime? @db.Date @map("effective_from")
+  effectiveTo    DateTime? @db.Date @map("effective_to")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @map("updated_at")
+
+  organization   Organization? @relation(fields: [orgId], references: [id])
+
+  @@map("schedules")
+}
+
+model Visit {
+  id         String   @id @default(uuid()) @db.Uuid
+  orgId      String?  @map("org_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at")
+  channel    String?  // CHECK (channel IN ('web','in_person','phone'))
+  page       String?
+  utmJson    Json?    @map("utm_json")
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@map("visits")
+}
+
+model Referral {
+  id              String    @id @default(uuid()) @db.Uuid
+  intakeRequestId String?   @map("intake_request_id") @db.Uuid
+  fromOrgId       String?   @map("from_org_id") @db.Uuid
+  toOrgId         String?   @map("to_org_id") @db.Uuid
+  toLawyerId      String?   @map("to_lawyer_id") @db.Uuid
+  reason          String?
+  status          String    @default("pending") // CHECK (status IN ('pending','accepted','declined','expired'))
+  decidedAt       DateTime? @map("decided_at")
+
+  intakeRequest   IntakeRequest? @relation(fields: [intakeRequestId], references: [id])
+  fromOrg         Organization?  @relation("ReferralFrom", fields: [fromOrgId], references: [id])
+  toOrg           Organization?  @relation("ReferralTo", fields: [toOrgId], references: [id])
+  toLawyer        Lawyer?        @relation(fields: [toLawyerId], references: [id])
+
+  @@map("referrals")
+}
+
+model Message {
+  id          String   @id @default(uuid()) @db.Uuid
+  caseId      String?  @map("case_id") @db.Uuid
+  senderRole  String?  @map("sender_role")
+  messageType String?  @map("message_type") // CHECK (message_type IN ('note','email','sms','call'))
+  content     String?
+  language    String?
+  attachments Json?
+  timestamp   DateTime? @default(now())
+
+  case        Case?    @relation(fields: [caseId], references: [id])
+
+  @@map("messages")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  entityTable  String?  @map("entity_table")
+  entityId     String?  @map("entity_id") @db.Uuid
+  action       String?
+  diffJson     Json?    @map("diff_json")
+  timestamp    DateTime? @default(now())
+  ip           String?
+
+  actorUser    User?    @relation(fields: [actorUserId], references: [id])
+
+  @@map("audit_logs")
+}
