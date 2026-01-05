@@ -223,6 +223,12 @@ export const translations = {
         numberOfDependents: "የጥገኛዎች ብዛት",
         occupation: "ስራ",
         monthlyIncome: "ወርሃዊ ገቢ (ብር)",
+        incomeLevel: "የገቢ ደረጃ",
+        noIncome: "ገቢ የለም",
+        below1000: "ከ1,000 ብር በታች",
+        between10003000: "1,000 - 3,000 ብር",
+        between30005000: "3,000 - 5,000 ብር",
+        above5000: "ከ5,000 ብር በላይ",
 
         // Legal Issue (Amharic)
         legalIssue: "የሕግ ጉዳይ",
@@ -370,6 +376,12 @@ export const translations = {
         numberOfDependents: "Baay'ina Warra Kunuunsitu",
         occupation: "Hojii",
         monthlyIncome: "Galii Ji'aa (Qarshii)",
+        incomeLevel: "Sadarkaa Galii",
+        noIncome: "Galii Hin Qabu",
+        below1000: "Qarshii 1,000 Gadi",
+        between10003000: "Qarshii 1,000 - 3,000",
+        between30005000: "Qarshii 3,000 - 5,000",
+        above5000: "Qarshii 5,000 Ol",
 
         // Legal Issue (Affan Oromo)
         legalIssue: "Dhimma Seeraa",
